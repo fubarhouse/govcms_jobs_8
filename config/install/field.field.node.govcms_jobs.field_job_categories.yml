@@ -1,0 +1,31 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_job_categories
+    - node.type.govcms_jobs
+    - taxonomy.vocabulary.job_categories
+  enforced:
+    module:
+      - govcms_jobs
+id: node.govcms_jobs.field_job_categories
+field_name: field_job_categories
+entity_type: node
+bundle: govcms_jobs
+label: 'Job Categories'
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:taxonomy_term'
+  handler_settings:
+    target_bundles:
+      job_categories: job_categories
+    sort:
+      field: name
+      direction: asc
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

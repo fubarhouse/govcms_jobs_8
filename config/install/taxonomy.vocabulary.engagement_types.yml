@@ -1,0 +1,11 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - govcms_jobs
+name: 'Engagement Types'
+vid: engagement_types
+description: ''
+hierarchy: 0
+weight: 0

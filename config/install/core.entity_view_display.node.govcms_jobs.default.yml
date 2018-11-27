@@ -1,0 +1,246 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.node.govcms_jobs.field_agencies
+    - field.field.node.govcms_jobs.field_apply_url
+    - field.field.node.govcms_jobs.field_approver
+    - field.field.node.govcms_jobs.field_broadband
+    - field.field.node.govcms_jobs.field_clearance_levels
+    - field.field.node.govcms_jobs.field_closing_date
+    - field.field.node.govcms_jobs.field_considered_rr
+    - field.field.node.govcms_jobs.field_contact_email
+    - field.field.node.govcms_jobs.field_contact_name
+    - field.field.node.govcms_jobs.field_contact_phone
+    - field.field.node.govcms_jobs.field_duties
+    - field.field.node.govcms_jobs.field_editorial_instruction
+    - field.field.node.govcms_jobs.field_eligibility
+    - field.field.node.govcms_jobs.field_engagement_types
+    - field.field.node.govcms_jobs.field_initiatives_and_programs
+    - field.field.node.govcms_jobs.field_job_categories
+    - field.field.node.govcms_jobs.field_job_levels
+    - field.field.node.govcms_jobs.field_locations
+    - field.field.node.govcms_jobs.field_moderation
+    - field.field.node.govcms_jobs.field_notes
+    - field.field.node.govcms_jobs.field_notice_number
+    - field.field.node.govcms_jobs.field_position_number
+    - field.field.node.govcms_jobs.field_publication_date
+    - field.field.node.govcms_jobs.field_requires_outcome
+    - field.field.node.govcms_jobs.field_salary_max
+    - field.field.node.govcms_jobs.field_salary_min
+    - field.field.node.govcms_jobs.field_under_7_days_check
+    - field.field.node.govcms_jobs.field_working_hours
+    - node.type.govcms_jobs
+  module:
+    - datetime
+    - options
+    - panelizer
+    - text
+    - user
+  enforced:
+    module:
+      - govcms_jobs
+third_party_settings:
+  panelizer:
+    enable: false
+    custom: false
+    allow: false
+    default: default
+id: node.govcms_jobs.default
+targetEntityType: node
+bundle: govcms_jobs
+mode: default
+content:
+  field_agencies:
+    weight: 4
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    type: list_default
+    region: content
+  field_apply_url:
+    weight: 19
+    label: inline
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    type: string
+    region: content
+  field_broadband:
+    weight: 6
+    label: inline
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    type: boolean
+    region: content
+  field_clearance_levels:
+    weight: 8
+    label: inline
+    settings:
+      link: true
+    third_party_settings: {  }
+    type: entity_reference_label
+    region: content
+  field_closing_date:
+    weight: 3
+    label: inline
+    settings:
+      format_type: medium
+      timezone_override: ''
+    third_party_settings: {  }
+    type: datetime_default
+    region: content
+  field_contact_email:
+    weight: 22
+    label: inline
+    settings: {  }
+    third_party_settings: {  }
+    type: basic_string
+    region: content
+  field_contact_name:
+    weight: 20
+    label: inline
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    type: string
+    region: content
+  field_contact_phone:
+    weight: 21
+    label: inline
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    type: string
+    region: content
+  field_duties:
+    weight: 16
+    label: inline
+    settings: {  }
+    third_party_settings: {  }
+    type: text_default
+    region: content
+  field_eligibility:
+    weight: 17
+    label: inline
+    settings: {  }
+    third_party_settings: {  }
+    type: text_default
+    region: content
+  field_engagement_types:
+    weight: 15
+    label: inline
+    settings:
+      link: true
+    third_party_settings: {  }
+    type: entity_reference_label
+    region: content
+  field_initiatives_and_programs:
+    weight: 9
+    label: inline
+    settings:
+      link: true
+    third_party_settings: {  }
+    type: entity_reference_label
+    region: content
+  field_job_categories:
+    weight: 5
+    label: inline
+    settings:
+      link: true
+    third_party_settings: {  }
+    type: entity_reference_label
+    region: content
+  field_job_levels:
+    weight: 7
+    label: inline
+    settings:
+      link: true
+    third_party_settings: {  }
+    type: entity_reference_label
+    region: content
+  field_locations:
+    weight: 10
+    label: inline
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    type: string
+    region: content
+  field_notes:
+    weight: 18
+    label: inline
+    settings: {  }
+    third_party_settings: {  }
+    type: text_default
+    region: content
+  field_notice_number:
+    weight: 1
+    label: inline
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    type: string
+    region: content
+  field_position_number:
+    weight: 13
+    label: inline
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    type: string
+    region: content
+  field_publication_date:
+    weight: 2
+    label: inline
+    settings:
+      format_type: medium
+      timezone_override: ''
+    third_party_settings: {  }
+    type: datetime_default
+    region: content
+  field_salary_max:
+    weight: 12
+    label: inline
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    type: number_decimal
+    region: content
+  field_salary_min:
+    weight: 11
+    label: inline
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    type: number_decimal
+    region: content
+  field_working_hours:
+    weight: 14
+    label: inline
+    settings:
+      link: true
+    third_party_settings: {  }
+    type: entity_reference_label
+    region: content
+  links:
+    weight: 0
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+hidden:
+  field_approver: true
+  field_considered_rr: true
+  field_editorial_instruction: true
+  field_moderation: true
+  field_requires_outcome: true
+  field_under_7_days_check: true

@@ -1,0 +1,11 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - govcms_jobs
+name: 'Position Initiatives and Programs'
+vid: position_initiatives_and_program
+description: ''
+hierarchy: 0
+weight: 0

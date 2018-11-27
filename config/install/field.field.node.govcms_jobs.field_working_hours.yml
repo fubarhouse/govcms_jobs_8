@@ -1,0 +1,31 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_working_hours
+    - node.type.govcms_jobs
+    - taxonomy.vocabulary.working_hours
+  enforced:
+    module:
+      - govcms_jobs
+id: node.govcms_jobs.field_working_hours
+field_name: field_working_hours
+entity_type: node
+bundle: govcms_jobs
+label: 'Working Hours'
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:taxonomy_term'
+  handler_settings:
+    target_bundles:
+      working_hours: working_hours
+    sort:
+      field: name
+      direction: asc
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

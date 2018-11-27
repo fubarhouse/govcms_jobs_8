@@ -1,0 +1,11 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - govcms_jobs
+name: 'Job Categories'
+vid: job_categories
+description: ''
+hierarchy: 0
+weight: 0

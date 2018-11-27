@@ -1,0 +1,21 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_contact_email
+    - node.type.govcms_jobs
+  enforced:
+    module:
+      - govcms_jobs
+id: node.govcms_jobs.field_contact_email
+field_name: field_contact_email
+entity_type: node
+bundle: govcms_jobs
+label: 'Contact Email'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: email

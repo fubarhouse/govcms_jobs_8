@@ -1,0 +1,17 @@
+govcms_jobs.admin:
+  title: 'Govcms Jobs'
+  parent: system.admin_structure
+  description: 'Govcms Jobs'
+  route_name: govcms_jobs.admin
+
+govcms_jobs.settings:
+  title: 'Govcms Jobs Settings'
+  parent: govcms_jobs.admin
+  description: 'Govcms Jobs Settings'
+  route_name: govcms_jobs.settings
+
+govcms_jobs.fapi:
+  title: 'Govcms Jobs FAPI Page'
+  parent: govcms_jobs.admin
+  description: 'Govcms Jobs FAPI Page'
+  route_name: govcms_jobs.fapi

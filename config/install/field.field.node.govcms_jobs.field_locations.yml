@@ -1,0 +1,21 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_locations
+    - node.type.govcms_jobs
+  enforced:
+    module:
+      - govcms_jobs
+id: node.govcms_jobs.field_locations
+field_name: field_locations
+entity_type: node
+bundle: govcms_jobs
+label: Locations
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

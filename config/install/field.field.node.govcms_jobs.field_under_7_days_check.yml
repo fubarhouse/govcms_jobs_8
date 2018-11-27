@@ -1,0 +1,25 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_under_7_days_check
+    - node.type.govcms_jobs
+  enforced:
+    module:
+      - govcms_jobs
+id: node.govcms_jobs.field_under_7_days_check
+field_name: field_under_7_days_check
+entity_type: node
+bundle: govcms_jobs
+label: 'Under 7 days check'
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: 'Yes'
+  off_label: 'No'
+field_type: boolean

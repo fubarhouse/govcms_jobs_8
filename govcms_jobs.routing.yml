@@ -1,0 +1,23 @@
+govcms_jobs.admin:
+  path: '/admin/structure/govcms_jobs'
+  defaults:
+    _controller: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
+    _title: 'Govcms Jobs'
+  requirements:
+    _permission: 'access administration pages'
+
+govcms_jobs.settings:
+  path: '/admin/structure/govcms_jobs/settings'
+  defaults:
+    _form: '\Drupal\govcms_jobs\Form\GovcmsJobsSettingsForm'
+    _title: 'Govcms Jobs settings'
+  requirements:
+    _permission: 'access administration pages'
+
+govcms_jobs.fapi:
+  path: '/admin/structure/govcms_jobs/fapi'
+  defaults:
+    _form: '\Drupal\govcms_jobs\Form\GovcmsJobsFapiForm'
+    _title: 'Govcms Jobs FAPI Page'
+  requirements:
+    _permission: 'access administration pages'

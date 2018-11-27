@@ -1,0 +1,11 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - govcms_jobs
+name: 'Job Levels'
+vid: job_levels
+description: ''
+hierarchy: 0
+weight: 0

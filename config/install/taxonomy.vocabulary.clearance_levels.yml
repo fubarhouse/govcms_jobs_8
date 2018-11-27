@@ -1,0 +1,11 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - govcms_jobs
+name: 'Clearance Levels'
+vid: clearance_levels
+description: ''
+hierarchy: 0
+weight: 0

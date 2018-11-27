@@ -1,0 +1,12 @@
+govcms_jobs:
+  version: VERSION
+  js:
+    # https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js: { type: external, minified: true }
+    js/select2.min.js: {}
+    js/govcms_jobs_node_form.js: {}
+  css:
+    theme:
+      # https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css: { type: external, minified: true }
+      css/select2.min.css: {}
+  dependencies:
+    - core/jquery

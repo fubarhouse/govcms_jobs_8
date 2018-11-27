@@ -1,0 +1,298 @@
+<?php
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Datetime\DrupalDateTime;
+use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\taxonomy\Entity\Term;
+
+/**
+ * Implement hook_form_node_govcms_jobs_form_alter().
+ */
+function govcms_jobs_form_node_govcms_jobs_form_alter(&$form, FormStateInterface $form_state) {
+  $form['#attached']['library'][] = 'govcms_jobs/govcms_jobs';
+  govcms_jobs_add_field_groups($form);
+  govcms_jobs_set_default_values_from_jsondata($form, $form_state);
+  $form['actions']['submit']['#submit'][] = 'govcms_jobs_update_current_id';
+}
+
+/**
+ * govcms_jobs_update_current_id.
+ */
+function govcms_jobs_update_current_id(&$form, FormStateInterface $form_state) {
+  $storage = $form_state->getStorage();
+  if (!empty($storage['apsid']) && !empty($storage['nid'])) {
+    $connection = \Drupal::database();
+    $connection->update('govcms_jobs_mapping')
+      ->fields([
+        'current_id' => $storage['nid'],
+        'status' => 1,
+      ])
+      ->condition('type', 'job')
+      ->condition('aps_id', $storage['apsid'])
+      ->execute();
+  }
+}
+
+/**
+ * Implement hook_form_node_govcms_jobs_edit_form_alter().
+ */
+function govcms_jobs_form_node_govcms_jobs_edit_form_alter(&$form, FormStateInterface $form_state) {
+  $form['#attached']['library'][] = 'govcms_jobs/govcms_jobs';
+  govcms_jobs_add_field_groups($form);
+}
+
+/**
+ * govcms_jobs_get_job_fetched.
+ */
+function govcms_jobs_get_job_fetched($id) {
+  $connection = \Drupal::database();
+  $query = $connection->select('govcms_jobs_mapping', 'm')
+    ->condition('type', 'job')
+    ->condition('aps_id', $id)
+    ->fields('m');
+  return $query->execute()->fetchObject();
+}
+
+/**
+ * govcms_jobs_get_mapped_id.
+ */
+function govcms_jobs_get_mapped_id($type, $aps_id) {
+  $connection = \Drupal::database();
+  $query = $connection->select('govcms_jobs_mapping', 'm')
+    ->condition('type', $type)
+    ->condition('aps_id', $aps_id)
+    ->fields('m', array('current_id'));
+  $current_id = $query->execute()->fetchField();
+  return $current_id;
+}
+
+/**
+ * govcms_jobs_add_field_groups.
+ */
+function govcms_jobs_add_field_groups(&$form) {
+  $group_names = [
+    'group_agency' => [
+      'title' => 'Agency',
+      'fields' => [
+        'field_publication_date',
+        'field_broadband',
+        'field_job_levels',
+        'field_agencies',
+        'field_considered_rr',
+      ],
+    ],
+    'group_position' => [
+      'title' => 'Position',
+      'fields' => [
+        'title',
+        'field_job_categories',
+        'field_locations',
+        'field_position_number',
+        'field_clearance_levels',
+        'field_salary_min',
+        'field_salary_max',
+        'field_working_hours',
+        'field_engagement_types',
+        'field_initiatives_and_programs',
+      ],
+    ],
+    'group_duties' => [
+      'title' => 'Duties',
+      'fields' => [
+        'field_duties',
+        'field_eligibility',
+        'field_notes',
+      ],
+    ],
+    'group_notice_details' => [
+      'title' => 'Notice Details',
+      'fields' => [
+        'field_under_7_days_check',
+        'field_closing_date',
+        'field_apply_url',
+        'field_contact_name',
+        'field_contact_phone',
+        'field_contact_email',
+        'field_editorial_instruction',
+      ],
+    ],
+    'group_submit' => [
+      'title' => 'Submit',
+      'fields' => [
+        'field_approver',
+        'field_moderation',
+      ],
+    ],
+  ];
+  $weight = 0;
+  foreach ($group_names as $key => $value) {
+    $form[$key] = [
+      '#type' => 'details',
+      '#title' => t($value['title']),
+      '#weight' => $weight++,
+      '#optional' => TRUE,
+      '#open' => TRUE,
+    ];
+    if ($weight > 1) {
+      $form[$key]['#open'] = FALSE;
+    }
+    foreach ($value['fields'] as $field_name) {
+      $form[$field_name]['#group'] = $key;
+    }
+  }
+}
+
+/**
+ * govcms_jobs_set_default_values_from_jsondata.
+ */
+function govcms_jobs_set_default_values_from_jsondata(&$form, FormStateInterface $form_state) {
+  $id = \Drupal::request()->query->get('apsid');
+  if (empty($id)) return;
+
+  $fetched_data = govcms_jobs_get_job_fetched($id);
+  if (empty($fetched_data)) return;
+
+  if (!empty($fetched_data->current_id)) return;
+
+  $storage = $form_state->getStorage();
+  $storage['apsid'] = $id;
+  $form_state->setStorage($storage);
+
+  $job_values = json_decode($fetched_data->data);
+
+  $time = strtotime($job_values->publication_date->date);
+  $publication_date = DrupalDateTime::createFromTimestamp($time);
+  $form['field_publication_date']['widget'][0]['value']['#default_value'] = $publication_date;
+
+  if ($job_values->broadband) {
+    $form['field_broadband']['widget']['value']['#default_value'] = TRUE;
+  }
+
+  $current_job_levels = [];
+  foreach ($job_values->job_level as $delta => $aps_id) {
+    $current_job_levels[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  }
+  $form['field_job_levels']['widget']['#default_value'] = $current_job_levels;
+
+  $form['field_agencies']['widget']['#default_value'] = $job_values->agency;
+
+  if (!$job_values->considered_rr) {
+    $form['field_considered_rr']['widget']['#default_value'] = 0;
+  }
+
+  $form['title']['widget'][0]['value']['#default_value'] = $job_values->job_title;
+
+  $current_job_cates = [];
+  foreach ($job_values->job_category as $delta => $aps_id) {
+    $current_job_cates[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  }
+  $form['field_job_categories']['widget']['#default_value'] = $current_job_cates;
+
+  foreach ($job_values->location as $delta => $value) {
+    if (!isset($form['field_locations']['widget'][$delta])) {
+      $form['field_locations']['widget'][$delta] = $form['field_locations']['widget'][0];
+      $form['field_locations']['widget'][$delta]['_weight']['#default_value'] = $delta;
+      $form['field_locations']['widget'][$delta]['value']['#delta'] = $delta;
+      $form['field_locations']['widget'][$delta]['value']['#weight'] = $delta;
+    }
+    $form['field_locations']['widget'][$delta]['value']['#default_value'] = $value;
+  }
+
+  $form['field_position_number']['widget'][0]['value']['#default_value'] = $job_values->position_number;
+
+  $current_clearance_levels = [];
+  foreach ($job_values->clearance_level as $delta => $aps_id) {
+    $current_clearance_levels[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  }
+  $form['field_clearance_levels']['widget']['#default_value'] = $current_clearance_levels;
+
+  $form['field_salary_min']['widget'][0]['value']['#default_value'] = $job_values->salary_from;
+
+  $form['field_salary_max']['widget'][0]['value']['#default_value'] = $job_values->salary_to;
+
+  $current_wh = [];
+  foreach ($job_values->working_hours as $delta => $aps_id) {
+    $current_wh[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  }
+  $form['field_working_hours']['widget']['#default_value'] = $current_wh;
+
+  $current_et = [];
+  foreach ($job_values->engagement_types as $delta => $aps_id) {
+    $current_et[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  }
+  $form['field_engagement_types']['widget']['#default_value'] = $current_et;
+
+  $current_ip = [];
+  foreach ($job_values->initiatives_and_programs as $delta => $aps_id) {
+    $current_ip[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  }
+  $form['field_initiatives_and_programs']['widget']['#default_value'] = $current_ip;
+
+  $form['field_duties']['widget'][0]['#default_value'] = $job_values->duties;
+  $form['field_eligibility']['widget'][0]['#default_value'] = $job_values->eligibility;
+  $form['field_notes']['widget'][0]['#default_value'] = $job_values->notes;
+
+  if ($job_values->under_7_days_check) {
+    $form['field_under_7_days_check']['widget']['value']['#default_value'] = TRUE;
+  }
+
+  $time = strtotime($job_values->closing_date->date);
+  $closing_date = DrupalDateTime::createFromTimestamp($time);
+  $form['field_closing_date']['widget'][0]['value']['#default_value'] = $closing_date;
+
+  $form['field_apply_url']['widget'][0]['value']['#default_value'] = $job_values->apply_url;
+  $form['field_contact_name']['widget'][0]['value']['#default_value'] = $job_values->contact_name;
+  $form['field_contact_phone']['widget'][0]['value']['#default_value'] = $job_values->contact_phone;
+  $form['field_contact_email']['widget'][0]['value']['#default_value'] = $job_values->contact_email;
+  $form['field_editorial_instruction']['widget'][0]['value']['#default_value'] = $job_values->editorial_instruction;
+  $form['field_approver']['widget'][0]['value']['#default_value'] = $job_values->approvers;
+  $form['field_moderation']['widget']['#default_value'] = $job_values->moderation;
+}
+
+/**
+ * Implements hook_entity_bundle_field_info_alter().
+ */
+function govcms_jobs_entity_bundle_field_info_alter(&$fields, \Drupal\Core\Entity\EntityTypeInterface $entity_type, $bundle) {
+  if ($bundle === 'govcms_jobs') {
+    if (isset($fields['field_publication_date'])) {
+      $fields['field_publication_date']->addConstraint('GovcmsJobsPubDateConstraint', []);
+    }
+    if (isset($fields['field_contact_phone'])) {
+      $fields['field_contact_phone']->addConstraint('GovcmsJobsAuPhoneConstraint', []);
+    }
+  }
+}
+
+/**
+ * Set dynamic allowed values for the agencies field.
+ *
+ * @param \Drupal\field\Entity\FieldStorageConfig $definition
+ *   The field definition.
+ * @param \Drupal\Core\Entity\ContentEntityInterface|null $entity
+ *   The entity being created if applicable.
+ * @param bool $cacheable
+ *   Boolean indicating if the results are cacheable.
+ *
+ * @return array
+ *   An array of possible key and value options.
+ *
+ * @see options_allowed_values()
+ */
+function govcms_jobs_field_agencies_allowed_values(FieldStorageConfig $definition, ContentEntityInterface $entity = NULL, $cacheable) {
+  $connection = \Drupal::database();
+  $query = $connection->select('govcms_jobs_mapping', 'm')
+  ->condition('type', 'agency')
+  ->fields('m');
+  $result = $query->execute()->fetchAll();
+  $options = [];
+  foreach ($result as $value) {
+    $data = json_decode($value->data);
+    if ($data->status) {
+      $options[$value->aps_id] = $data->title;
+    }
+  }
+  asort($options);
+
+  return $options;
+}

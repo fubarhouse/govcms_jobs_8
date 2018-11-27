@@ -1,0 +1,31 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_job_levels
+    - node.type.govcms_jobs
+    - taxonomy.vocabulary.job_levels
+  enforced:
+    module:
+      - govcms_jobs
+id: node.govcms_jobs.field_job_levels
+field_name: field_job_levels
+entity_type: node
+bundle: govcms_jobs
+label: 'Job Levels'
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:taxonomy_term'
+  handler_settings:
+    target_bundles:
+      job_levels: job_levels
+    sort:
+      field: name
+      direction: asc
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

@@ -1,0 +1,25 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_salary_max
+    - node.type.govcms_jobs
+  enforced:
+    module:
+      - govcms_jobs
+id: node.govcms_jobs.field_salary_max
+field_name: field_salary_max
+entity_type: node
+bundle: govcms_jobs
+label: 'Salary Max'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

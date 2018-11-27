@@ -1,0 +1,31 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_clearance_levels
+    - node.type.govcms_jobs
+    - taxonomy.vocabulary.clearance_levels
+  enforced:
+    module:
+      - govcms_jobs
+id: node.govcms_jobs.field_clearance_levels
+field_name: field_clearance_levels
+entity_type: node
+bundle: govcms_jobs
+label: 'Clearance Levels'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:taxonomy_term'
+  handler_settings:
+    target_bundles:
+      clearance_levels: clearance_levels
+    sort:
+      field: name
+      direction: asc
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

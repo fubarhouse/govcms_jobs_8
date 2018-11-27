@@ -1,0 +1,11 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - govcms_jobs
+name: 'Working Hours'
+vid: working_hours
+description: ''
+hierarchy: 0
+weight: 0

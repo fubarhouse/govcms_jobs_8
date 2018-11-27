@@ -1,0 +1,178 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function govcms_jobs_install() {
+  govcms_jobs_import_location();
+}
+
+/**
+* Implements hook_uninstall().
+*/
+function govcms_jobs_uninstall() {
+  // Delete all govcms_jobs contents
+  $queryFactory = \Drupal::service('entity.query');
+  $nodeStorage  = \Drupal::entityManager()->getStorage('node');
+
+  $query = $queryFactory->get('node')
+    ->condition('type', 'govcms_jobs');
+  $nids = $query->execute();
+
+  if (!empty($nids)) {
+    $entities = $nodeStorage->loadMultiple($nids);
+    $nodeStorage->delete($entities);
+  }
+
+  // Delete generated config
+  \Drupal::service('config.factory')->getEditable('govcms_jobs.settings')->delete();
+}
+
+/**
+ * Implements hook_schema().
+ */
+function govcms_jobs_schema() {
+  $schema['govcms_jobs_mapping'] = [
+    'description' => 'Mapping id of data (job, taxonomy) between current site and APSjobs site',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key.',
+      ],
+      'type' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Type of data (job, taxonomy)',
+      ],
+      'aps_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Id of data in APSjobs site',
+      ],
+      'data' => [
+        'type' => 'text',
+        'size' => 'big',
+      ],
+      'current_id' => [
+        'type' => 'int',
+        'description' => 'Id of data created in current site',
+      ],
+      'status' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'created' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'type' => ['type'],
+      'aps_id' => ['aps_id'],
+      'current_id' => ['current_id'],
+    ],
+  ];
+
+  $schema['govcms_jobs_location'] = array(
+    'description' => 'Location base table',
+    'fields' => [
+      'id' => array(
+        'type' => 'serial',
+        'not null' => true,
+        'description' => 'Primary Key.',
+      ),
+      'title' => array(
+        'type' => 'text',
+        'not null' => true,
+        'description' => 'title',
+      ),
+      'postcode' => array(
+        'type' => 'text',
+        'not null' => true,
+        'description' => 'post code',
+      ),
+      'place_name' => array(
+        'type' => 'text',
+        'not null' => true,
+        'description' => 'place name',
+      ),
+      'state_name' => array(
+        'type' => 'text',
+        'not null' => true,
+        'description' => 'state name',
+      ),
+      'state_code' => array(
+        'type' => 'text',
+        'not null' => true,
+        'description' => 'state code',
+      ),
+      'latitude' => array(
+        'type' => 'float',
+        'not null' => true,
+        'description' => 'latitude',
+      ),
+
+      'latitude' => array(
+        'type' => 'float',
+        'not null' => true,
+        'description' => 'latitude',
+      ),
+      'longitude' => array(
+        'type' => 'float',
+        'not null' => true,
+        'description' => 'longitude',
+      ),
+      'accuracy' => array(
+        'type' => 'int',
+        'not null' => false,
+        'description' => 'accuracy',
+      ),
+    ],
+    'primary key' => ['id'],
+  );
+
+  return $schema;
+}
+
+function govcms_jobs_import_location() {
+  $data_file = drupal_get_path('module', 'govcms_jobs') . "/postcodes.csv";
+  $handle = fopen($data_file, 'r');
+  $row = fgetcsv($handle);
+  $columns = array();
+
+  foreach ($row as $i => $header) {
+    $columns[$i] = trim($header);
+  }
+
+  $records = array();
+  while ($row = fgetcsv($handle)) {
+    $record = array();
+    foreach ($row as $i => $field) {
+      if (($columns[$i] == 'postcode') && (strlen($field) <= 3)) {
+        $field = "0" . $field;
+      }
+      $govcms_jobs_location_field = $columns[$i];
+      $record[$govcms_jobs_location_field] = $field;
+    }
+    $record['title'] = $record['place_name'] . ', ' . $record['state_code'] . ', ' . $record['postcode'];
+    $record['accuracy'] = $record['accuracy'] ? $record['accuracy'] : NULL;
+    $records[] = $record;
+  }
+  fclose($handle);
+  foreach ($records as $id => $record) {
+    $connection = \Drupal::database();
+    $connection->insert('govcms_jobs_location')->fields($record)->execute();
+  }
+}
