@@ -24,8 +24,8 @@ class GovcmsJobsFapiForm extends FormBase {
     $form['govcms_jobs_fapi']['#markup'] = '<h2>Sync and author jobs from APS API</h2><p>Setting account for login APS API at <a href="/admin/structure/govcms_jobs/settings">Govcms Jobs Settings</a></p>';
 
     $form['step1'] = [
-      '#type' => 'fieldset',
-      '#title' => 'Step1: Sync all taxonomy',
+      '#type' => 'details',
+      '#title' => 'Step1: Get taxonomy',
     ];
 
     $form['step1']['get_taxonomy'] = [
@@ -35,8 +35,8 @@ class GovcmsJobsFapiForm extends FormBase {
     ];
 
     $form['step2'] = [
-      '#type' => 'fieldset',
-      '#title' => 'Step 2: Sync all agency',
+      '#type' => 'details',
+      '#title' => 'Step 2: Get agency',
     ];
 
     $form['step2']['get_agency'] = [
@@ -46,8 +46,8 @@ class GovcmsJobsFapiForm extends FormBase {
     ];
 
     $form['step3'] = [
-      '#type' => 'fieldset',
-      '#title' => 'Step 3: Sync all job',
+      '#type' => 'details',
+      '#title' => 'Step 3: Get job',
     ];
 
     $form['step3']['get_job'] = [

@@ -93,6 +93,68 @@ class GovcmsJobsApiClient {
     $this->cookie = NULL;
   }
 
+  public function createVacancy($data) {
+    if (!$this->login()) {
+      \Drupal::messenger()->addError('Can not login to APS API.');
+      return FALSE;
+    }
+    $path = '/api/vacancy';
+    try {
+      $response = $this->client->request('POST', $path, [
+        'headers' => [
+          'X-CSRF-Token' => $this->token,
+          'cookie' => $this->cookie,
+        ],
+        'body' => $data,
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::messenger()->addError($e->getMessage());
+      return FALSE;
+    }
+    if ($response->getStatusCode() == '200') {
+      $body = json_decode((string)$response->getBody());
+      \Drupal::messenger()->addMessage('Create job to APSjobs: nid=' . $body->nid . ' ' . $body->message);
+      return $body->nid;
+    }
+    else {
+      $body = json_decode((string)$response->getBody());
+      \Drupal::messenger()->addError('Create job to APSjobs: ' . $body[0]);
+      return FALSE;
+    }
+  }
+
+  public function updateVacancy($nid, $data) {
+    if (!$this->login()) {
+      \Drupal::messenger()->addError('Can not login to APS API.');
+      return FALSE;
+    }
+    $path = '/api/vacancy/' . $nid;
+    try {
+      $response = $this->client->request('PUT', $path, [
+        'headers' => [
+          'X-CSRF-Token' => $this->token,
+          'cookie' => $this->cookie,
+        ],
+        'body' => $data,
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::messenger()->addError($e->getMessage());
+      return FALSE;
+    }
+    if ($response->getStatusCode() == '200') {
+      $body = json_decode((string)$response->getBody());
+      \Drupal::messenger()->addMessage('Update to APSjobs: nid=' . $body->nid . ' ' . $body->message);
+      return $body->nid;
+    }
+    else {
+      $body = json_decode((string)$response->getBody());
+      \Drupal::messenger()->addError('Update to APSjobs: ' . $body[0]);
+      return FALSE;
+    }
+  }
+
   public function getVacancy($nid) {
     if (!$this->login()) {
       \Drupal::messenger()->addError('Can not login to APS API.');

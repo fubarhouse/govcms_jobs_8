@@ -21,3 +21,11 @@ govcms_jobs.fapi:
     _title: 'Govcms Jobs FAPI Page'
   requirements:
     _permission: 'access administration pages'
+
+govcms_jobs.autocomplete:
+  path: '/govcms-jobs-autocomplete/{field_name}/{count}'
+  defaults:
+    _controller: '\Drupal\govcms_jobs\Controller\AutocompleteController::handleAutocomplete'
+    _format: json
+  requirements:
+    _access: 'TRUE'
