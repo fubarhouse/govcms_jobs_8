@@ -15,6 +15,6 @@ use Symfony\Component\Validator\Constraint;
  */
 class GovcmsJobsCloseDateConstraint extends Constraint {
 
-  public $message = 'Closing date must be lagrer than Publication date.';
+  public $message = 'Closing date must be the same or past the vacancy publication date.';
 
 }
