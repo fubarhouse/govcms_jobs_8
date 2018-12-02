@@ -115,7 +115,7 @@ class GovcmsJobsApiClient {
     if ($response->getStatusCode() == '200') {
       $body = json_decode((string)$response->getBody());
       \Drupal::messenger()->addMessage('Create job to APSjobs: nid=' . $body->nid . ' ' . $body->message);
-      return $body->nid;
+      return $body;
     }
     else {
       $body = json_decode((string)$response->getBody());
@@ -146,7 +146,7 @@ class GovcmsJobsApiClient {
     if ($response->getStatusCode() == '200') {
       $body = json_decode((string)$response->getBody());
       \Drupal::messenger()->addMessage('Update to APSjobs: nid=' . $body->nid . ' ' . $body->message);
-      return $body->nid;
+      return $body;
     }
     else {
       $body = json_decode((string)$response->getBody());

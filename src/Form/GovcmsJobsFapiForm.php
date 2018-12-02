@@ -7,6 +7,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\taxonomy\Entity\Term;
 use Drupal\govcms_jobs\GovcmsJobsApiClient;
 use Drupal\Component\Render\FormattableMarkup;
+use Drupal\node\Entity\Node;
 
 class GovcmsJobsFapiForm extends FormBase {
 
@@ -25,7 +26,8 @@ class GovcmsJobsFapiForm extends FormBase {
 
     $form['step1'] = [
       '#type' => 'details',
-      '#title' => 'Step1: Get taxonomy',
+      '#title' => 'Step1: Taxonomy',
+      '#open' => TRUE,
     ];
 
     $form['step1']['get_taxonomy'] = [
@@ -36,7 +38,8 @@ class GovcmsJobsFapiForm extends FormBase {
 
     $form['step2'] = [
       '#type' => 'details',
-      '#title' => 'Step 2: Get agency',
+      '#title' => 'Step 2: Agency',
+      '#open' => TRUE,
     ];
 
     $form['step2']['get_agency'] = [
@@ -47,12 +50,13 @@ class GovcmsJobsFapiForm extends FormBase {
 
     $form['step3'] = [
       '#type' => 'details',
-      '#title' => 'Step 3: Get job',
+      '#title' => 'Step 3: Job',
+      '#open' => TRUE,
     ];
 
     $form['step3']['get_job'] = [
       '#type' => 'submit',
-      '#value' => 'Get job',
+      '#value' => 'Pull job',
       '#submit' => ['::getJobFormSubmit'],
     ];
 
@@ -144,13 +148,22 @@ class GovcmsJobsFapiForm extends FormBase {
       return;
     }
 
+    $new = $update = 0;
     foreach ($data->vacancies as $value) {
-      if (!$this->isFetched('job', $value->vacancy_id)) {
-        $this->addMappingData('job', $value->vacancy_id, \json_encode($value));
+      if (!$mapping_data = $this->isFetched('job', $value->vacancy_id)) {
+        $new++;
+        $this->addMappingData('job', $value->vacancy_id, \json_encode($value), $value->created, $value->changed);
+      }
+      elseif ($mapping_data->changed < $value->changed) {
+        $update++;
+        if ($node_id = $this->getMappedId('job', $value->vacancy_id)) {
+          $this->updateJobNodeByJsonData($node_id, $value);
+        }
+        $this->updateMappingData('job', $value->vacancy_id, \json_encode($value), $value->created, $value->changed, $node_id);
       }
     }
 
-    $this->messenger()->addMessage('Done');
+    $this->messenger()->addMessage($this->t('Pull job done (%n1 new job(s), %n2 updated job(s)', ['%n1' => $new, '%n2' => $update]));
   }
 
   private function createTaxonomyTerm($vocabulary, $value) {
@@ -161,7 +174,7 @@ class GovcmsJobsFapiForm extends FormBase {
       ]);
       try {
         $term->save();
-        $this->addMappingData('taxonomy', $value->tid, \json_encode($value), $term->id());
+        $this->addMappingData('taxonomy', $value->tid, \json_encode($value), 0, 0, $term->id());
       }
       catch (\Exception $e) {
         $this->messenger()->addError($e->getMessage);
@@ -196,16 +209,23 @@ class GovcmsJobsFapiForm extends FormBase {
     $query = $connection->select('govcms_jobs_mapping', 'm')
       ->condition('type', $type)
       ->condition('aps_id', $aps_id)
-      ->fields('m', array('id'));
-    $id = $query->execute()->fetchField();
-    return $id;
+      ->fields('m');
+    $row = $query->execute()->fetchObject();
+    return $row;
   }
 
-  private function addMappingData($type, $aps_id, $data, $current_id = NULL) {
+  private function addMappingData($type, $aps_id, $data, $created = 0, $changed = 0, $current_id = NULL) {
     $status = $current_id ? 1 : 0;
-    $entry = \compact('type', 'aps_id', 'data', 'current_id', 'status');
+    $entry = \compact('type', 'aps_id', 'data', 'current_id', 'status', 'created', 'changed');
     $connection = \Drupal::database();
     $connection->insert('govcms_jobs_mapping')->fields($entry)->execute();
+  }
+
+  private function updateMappingData($type, $aps_id, $data, $created = 0, $changed = 0, $current_id = NULL) {
+    $status = $current_id ? 1 : 0;
+    $entry = \compact('type', 'aps_id', 'data', 'current_id', 'status', 'created', 'changed');
+    $connection = \Drupal::database();
+    $connection->update('govcms_jobs_mapping')->fields($entry)->condition('aps_id', $aps_id)->execute();
   }
 
   private function getJobsDataFetched() {
@@ -226,7 +246,7 @@ class GovcmsJobsFapiForm extends FormBase {
       else {
         $operation = new FormattableMarkup(
           '<a href=":link">@name</a>',
-          [':link' => '/node/add/govcms_jobs?apsid=' . $value->aps_id, '@name' => 'Create Job']
+          [':link' => '/node/add/govcms_jobs?aps_id=' . $value->aps_id, '@name' => 'Create Job']
         );
       }
       $fetched_data[] = [
@@ -239,4 +259,9 @@ class GovcmsJobsFapiForm extends FormBase {
     }
     return $fetched_data;
   }
+
+  public function updateJobNodeByJsonData($nid, $values) {
+    govcms_jobs_update_node_by_json_data($nid, $values);
+  }
+
 }

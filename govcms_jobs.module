@@ -7,6 +7,8 @@ use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\taxonomy\Entity\Term;
 use Drupal\govcms_jobs\GovcmsJobsApiClient;
 use Drupal\node\Entity\Node;
+use Drupal\Core\Link;
+use Drupal\Component\Render\FormattableMarkup;
 
 /**
  * Implement hook_form_node_govcms_jobs_form_alter().
@@ -15,12 +17,17 @@ use Drupal\node\Entity\Node;
 function govcms_jobs_form_node_govcms_jobs_form_alter(&$form, FormStateInterface $form_state) {
   $form['#attached']['library'][] = 'govcms_jobs/govcms_jobs';
   govcms_jobs_add_field_groups($form);
-  $apsid = govcms_jobs_set_default_values_from_jsondata($form, $form_state);
-  if ($apsid) {
+  $aps_id = govcms_jobs_set_default_values_from_jsondata($form, $form_state);
+  if ($aps_id) {
     $storage = $form_state->getStorage();
-    $storage['apsid'] = $apsid;
+    $storage['aps_id'] = $aps_id;
     $form_state->setStorage($storage);
     $form['actions']['submit']['#submit'][] = 'govcms_jobs_update_to_apsjobs';
+    $form['#validate'][] = 'govcms_jobs_validate_synchronized';
+    if (!govcms_jobs_is_job_synchronized($aps_id)) {
+      $msg = new FormattableMarkup('Need sync. Goto @link to pull job', ['@link' => Link::createFromRoute('FAPI page', 'govcms_jobs.fapi')->toString()]);
+      \Drupal::messenger()->addError($msg);
+    }
   }
   else {
     $form['actions']['submit']['#submit'][] = 'govcms_jobs_create_to_apsjobs';
@@ -38,11 +45,16 @@ function govcms_jobs_form_node_govcms_jobs_edit_form_alter(&$form, FormStateInte
   $callback_object = $build_info['callback_object'];
   $node = $callback_object->getEntity();
   if (!empty($node)) {
-    $apsid = govcms_jobs_get_apsid_from_current_id('job', $node->id());
+    $aps_id = govcms_jobs_get_aps_id_from_current_id('job', $node->id());
     $storage = $form_state->getStorage();
-    $storage['apsid'] = $apsid;
+    $storage['aps_id'] = $aps_id;
     $form_state->setStorage($storage);
     $form['actions']['submit']['#submit'][] = 'govcms_jobs_update_to_apsjobs';
+    $form['#validate'][] = 'govcms_jobs_validate_synchronized';
+    if (!govcms_jobs_is_job_synchronized($aps_id)) {
+      $msg = new FormattableMarkup('Need sync. Goto @link to pull job', ['@link' => Link::createFromRoute('FAPI page', 'govcms_jobs.fapi')->toString()]);
+      \Drupal::messenger()->addError($msg);
+    }
   }
 }
 
@@ -57,11 +69,33 @@ function govcms_jobs_field_widget_string_textfield_form_alter(&$element, &$form_
 }
 
 /**
+ * govcms_jobs_validate_synchronized.
+ */
+function govcms_jobs_validate_synchronized(&$form, FormStateInterface $form_state) {
+  $storage = $form_state->getStorage();
+  if (!govcms_jobs_is_job_synchronized($storage['aps_id'])) {
+    $msg = new FormattableMarkup('Need sync. Goto @link to pull job', ['@link' => Link::createFromRoute('FAPI page', 'govcms_jobs.fapi')->toString()]);
+    $form_state->setErrorByName('', $msg);
+  }
+}
+
+function govcms_jobs_is_job_synchronized($aps_id) {
+  $config = \Drupal::config('govcms_jobs.settings');
+  $client = new GovcmsJobsApiClient($config->get('api.base_uri'), $config->get('api.username'), $config->get('api.password'), $config->get('api.authorization'));
+  $response = $client->getVacancy($aps_id);
+  $stored_data = govcms_jobs_get_job_fetched($aps_id);
+  if (!empty($response) && !empty($stored_data)) {
+    return $stored_data->changed == $response->result->changed;
+  }
+  return FALSE;
+}
+
+/**
  * govcms_jobs_update_to_apsjobs.
  */
 function govcms_jobs_update_to_apsjobs(&$form, FormStateInterface $form_state) {
   $storage = $form_state->getStorage();
-  if (empty($storage['apsid']) || empty($storage['nid'])) {
+  if (empty($storage['aps_id']) || empty($storage['nid'])) {
     return;
   }
 
@@ -71,18 +105,28 @@ function govcms_jobs_update_to_apsjobs(&$form, FormStateInterface $form_state) {
 
   $config = \Drupal::config('govcms_jobs.settings');
   $client = new GovcmsJobsApiClient($config->get('api.base_uri'), $config->get('api.username'), $config->get('api.password'), $config->get('api.authorization'));
-  $client->updateVacancy($storage['apsid'], $json);
+  $response = $client->updateVacancy($storage['aps_id'], $json);
 
-  $connection = \Drupal::database();
-  $connection->update('govcms_jobs_mapping')
-    ->fields([
-      'data' => $json,
-      'current_id' => $storage['nid'],
-      'status' => 1,
-    ])
-    ->condition('type', 'job')
-    ->condition('aps_id', $storage['apsid'])
-    ->execute();
+  if ($response) {
+    $connection = \Drupal::database();
+    $connection->update('govcms_jobs_mapping')
+      ->fields([
+        'data' => $json,
+        'current_id' => $storage['nid'],
+        'status' => 1,
+        'created' => $response->created,
+        'changed' => $response->changed,
+      ])
+      ->condition('type', 'job')
+      ->condition('aps_id', $storage['aps_id'])
+      ->execute();
+  }
+  else {
+    $job = govcms_jobs_get_job_fetched($storage['aps_id']);
+    govcms_jobs_update_node_by_json_data($storage['nid'], json_decode($job->data));
+    \Drupal::messenger()->deleteByType('status');
+    $form_state->setRebuild();
+  }
 }
 
 /**
@@ -100,25 +144,32 @@ function govcms_jobs_create_to_apsjobs(&$form, FormStateInterface $form_state) {
 
   $config = \Drupal::config('govcms_jobs.settings');
   $client = new GovcmsJobsApiClient($config->get('api.base_uri'), $config->get('api.username'), $config->get('api.password'), $config->get('api.authorization'));
-  $apsid = $client->createVacancy($json);
-  if ($apsid) {
+  $response = $client->createVacancy($json);
+  if ($response) {
     $connection = \Drupal::database();
     $connection->insert('govcms_jobs_mapping')
       ->fields([
         'type' => 'job',
-        'aps_id' => $apsid,
+        'aps_id' => $response->nid,
         'data' => $json,
         'current_id' => $storage['nid'],
         'status' => 1,
+        'created' => $response->created,
+        'changed' => $response->changed,
       ])
       ->execute();
+  }
+  else {
+    $node->delete();
+    \Drupal::messenger()->deleteByType('status');
+    $form_state->setRedirect(\Drupal::routeMatch()->getRouteName(), ['node_type' => 'govcms_jobs']);
   }
 }
 
 /**
  * convert term_id to vacancy_id
  */
-function govcms_jobs_get_apsid_from_current_id($type, $id = null) {
+function govcms_jobs_get_aps_id_from_current_id($type, $id = null) {
   if (empty($id)) {
     return '';
   }
@@ -134,11 +185,11 @@ function govcms_jobs_get_apsid_from_current_id($type, $id = null) {
 /**
  * govcms_jobs_get_job_fetched.
  */
-function govcms_jobs_get_job_fetched($id) {
+function govcms_jobs_get_job_fetched($aps_id) {
   $connection = \Drupal::database();
   $query = $connection->select('govcms_jobs_mapping', 'm')
     ->condition('type', 'job')
-    ->condition('aps_id', $id)
+    ->condition('aps_id', $aps_id)
     ->fields('m');
   return $query->execute()->fetchObject();
 }
@@ -236,10 +287,10 @@ function govcms_jobs_add_field_groups(&$form) {
  * govcms_jobs_set_default_values_from_jsondata.
  */
 function govcms_jobs_set_default_values_from_jsondata(&$form, FormStateInterface $form_state) {
-  $apsid = \Drupal::request()->query->get('apsid');
-  if (empty($apsid)) return FALSE;
+  $aps_id = \Drupal::request()->query->get('aps_id');
+  if (empty($aps_id)) return FALSE;
 
-  $fetched_data = govcms_jobs_get_job_fetched($apsid);
+  $fetched_data = govcms_jobs_get_job_fetched($aps_id);
   if (empty($fetched_data)) return FALSE;
 
   if (!empty($fetched_data->current_id)) return FALSE;
@@ -255,8 +306,8 @@ function govcms_jobs_set_default_values_from_jsondata(&$form, FormStateInterface
   }
 
   $current_job_levels = [];
-  foreach ($job_values->job_level as $delta => $aps_id) {
-    $current_job_levels[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  foreach ($job_values->job_level as $delta => $aps_tid) {
+    $current_job_levels[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
   }
   $form['field_job_levels']['widget']['#default_value'] = $current_job_levels;
 
@@ -269,12 +320,12 @@ function govcms_jobs_set_default_values_from_jsondata(&$form, FormStateInterface
   $form['title']['widget'][0]['value']['#default_value'] = $job_values->job_title;
 
   $current_job_cates = [];
-  foreach ($job_values->job_category as $delta => $aps_id) {
-    $current_job_cates[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  foreach ($job_values->job_category as $delta => $aps_tid) {
+    $current_job_cates[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
   }
   $form['field_job_categories']['widget']['#default_value'] = $current_job_cates;
 
-  foreach ($job_values->location as $delta => $value) {
+  foreach ($job_values->locations as $delta => $value) {
     if (!isset($form['field_locations']['widget'][$delta])) {
       $form['field_locations']['widget'][$delta] = $form['field_locations']['widget'][0];
       $form['field_locations']['widget'][$delta]['_weight']['#default_value'] = $delta;
@@ -286,31 +337,33 @@ function govcms_jobs_set_default_values_from_jsondata(&$form, FormStateInterface
 
   $form['field_position_number']['widget'][0]['value']['#default_value'] = $job_values->position_number;
 
-  $current_clearance_levels = [];
-  foreach ($job_values->clearance_level as $delta => $aps_id) {
-    $current_clearance_levels[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  if (!empty($job_values->clearance_level)) {
+    $current_clearance_levels = [];
+    foreach ($job_values->clearance_level as $delta => $aps_tid) {
+      $current_clearance_levels[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
+    }
+    $form['field_clearance_levels']['widget']['#default_value'] = $current_clearance_levels;
   }
-  $form['field_clearance_levels']['widget']['#default_value'] = $current_clearance_levels;
 
   $form['field_salary_min']['widget'][0]['value']['#default_value'] = $job_values->salary_from;
 
   $form['field_salary_max']['widget'][0]['value']['#default_value'] = $job_values->salary_to;
 
   $current_wh = [];
-  foreach ($job_values->working_hours as $delta => $aps_id) {
-    $current_wh[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  foreach ($job_values->working_hours as $delta => $aps_tid) {
+    $current_wh[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
   }
   $form['field_working_hours']['widget']['#default_value'] = $current_wh;
 
   $current_et = [];
-  foreach ($job_values->engagement_types as $delta => $aps_id) {
-    $current_et[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  foreach ($job_values->engagement_types as $delta => $aps_tid) {
+    $current_et[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
   }
   $form['field_engagement_types']['widget']['#default_value'] = $current_et;
 
   $current_ip = [];
-  foreach ($job_values->initiatives_and_programs as $delta => $aps_id) {
-    $current_ip[] = govcms_jobs_get_mapped_id('taxonomy', $aps_id);
+  foreach ($job_values->initiatives_and_programs as $delta => $aps_tid) {
+    $current_ip[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
   }
   $form['field_initiatives_and_programs']['widget']['#default_value'] = $current_ip;
 
@@ -334,7 +387,7 @@ function govcms_jobs_set_default_values_from_jsondata(&$form, FormStateInterface
   $form['field_approver']['widget'][0]['value']['#default_value'] = $job_values->approvers;
   $form['field_moderation']['widget']['#default_value'] = $job_values->moderation;
 
-  return $apsid;
+  return $aps_id;
 }
 
 /**
@@ -401,7 +454,7 @@ function govcms_jobs_get_json_data_from_node($node) {
 
   $data['job_level']= null;
   foreach ($node->get('field_job_levels')->getValue() as $key => $value) {
-    $data['job_level'][] = govcms_jobs_get_apsid_from_current_id('taxonomy', $value['target_id']);
+    $data['job_level'][] = govcms_jobs_get_aps_id_from_current_id('taxonomy', $value['target_id']);
   }
 
   $data['agency'] = null;
@@ -413,7 +466,7 @@ function govcms_jobs_get_json_data_from_node($node) {
   $data['job_title'] = $node->get('title')->getValue()[0]['value'];
   $data['job_category'] = null;
   foreach ($node->get('field_job_categories')->getValue() as $key => $value) {
-    $data['job_category'][] = govcms_jobs_get_apsid_from_current_id('taxonomy', $value['target_id']);
+    $data['job_category'][] = govcms_jobs_get_aps_id_from_current_id('taxonomy', $value['target_id']);
   }
   $data['locations'] = null;
   foreach ($node->get('field_locations')->getValue() as $key => $value) {
@@ -422,24 +475,24 @@ function govcms_jobs_get_json_data_from_node($node) {
   $data['position_number'] = $node->get('field_position_number')->getValue()[0]['value'];
   $data['clearance_level'] = null;
   foreach ($node->get('field_clearance_levels')->getValue() as $key => $value) {
-    $data['clearance_level'][] = govcms_jobs_get_apsid_from_current_id('taxonomy', $value['target_id']);
+    $data['clearance_level'][] = govcms_jobs_get_aps_id_from_current_id('taxonomy', $value['target_id']);
   }
   $data["salary_type"] ="annually";
-  $data['salary_from'] = $node->get('field_salary_min')->getValue()[0]['value'];
-  $data['salary_to'] = $node->get('field_salary_max')->getValue()[0]['value'];
+  $data['salary_from'] = !empty($node->get('field_salary_min')->getValue()) ? $node->get('field_salary_min')->getValue()[0]['value'] : '';
+  $data['salary_to'] = !empty($node->get('field_salary_max')->getValue()) ? $node->get('field_salary_max')->getValue()[0]['value'] : '';
 
   $data['working_hours'] = null;
   foreach ($node->get('field_working_hours')->getValue() as $key => $value) {
-    $data['working_hours'][] = govcms_jobs_get_apsid_from_current_id('taxonomy', $value['target_id']);
+    $data['working_hours'][] = govcms_jobs_get_aps_id_from_current_id('taxonomy', $value['target_id']);
   }
   $data['engagement_types'] = null;
   foreach ($node->get('field_engagement_types')->getValue() as $key => $value) {
-    $data['engagement_types'][] = govcms_jobs_get_apsid_from_current_id('taxonomy', $value['target_id']);
+    $data['engagement_types'][] = govcms_jobs_get_aps_id_from_current_id('taxonomy', $value['target_id']);
   }
 
   $data['initiatives_and_programs'] = null;
   foreach ($node->get('field_initiatives_and_programs')->getValue() as $key => $value) {
-    $data['initiatives_and_programs'][] = govcms_jobs_get_apsid_from_current_id('taxonomy', $value['target_id']);
+    $data['initiatives_and_programs'][] = govcms_jobs_get_aps_id_from_current_id('taxonomy', $value['target_id']);
   }
 
   $data['duties'] = $node->get('field_duties')->getValue()[0]['value'];
@@ -459,4 +512,77 @@ function govcms_jobs_get_json_data_from_node($node) {
   $json = json_encode($data);
 
   return $json;
+}
+
+function govcms_jobs_update_node_by_json_data($nid, $values) {
+  $node = Node::load($nid);
+
+  //Agency
+  $node->field_publication_date->value = date('Y-m-d\TH:i:s', strtotime($values->publication_date->date));
+  $node->field_broadband->value = $values->broadband;
+  $tids = [];
+  foreach ($values->job_level as $delta => $aps_tid) {
+    $tids[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
+  }
+  $node->field_job_levels = $tids;
+  $node->field_agencies = $values->agency;
+  $node->field_considered_rr->value = $values->considered_rr;
+
+  //Position
+  $node->title->value = $values->job_title;
+  $tids = [];
+  foreach ($values->job_category as $delta => $aps_tid) {
+    $tids[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
+  }
+  $node->field_job_categories = $tids;
+  $node->field_locations = $values->locations;
+  $node->field_position_number->value = $values->position_number;
+  $tids = [];
+  foreach ($values->clearance_level as $delta => $aps_tid) {
+    $tids[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
+  }
+  $node->field_clearance_levels = $tids;
+  $node->field_salary_min->value = $values->salary_from;
+  $node->field_salary_max->value = $values->salary_to;
+  $tids = [];
+  foreach ($values->working_hours as $delta => $aps_tid) {
+    $tids[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
+  }
+  $node->field_working_hours = $tids;
+  $tids = [];
+  foreach ($values->engagement_types as $delta => $aps_tid) {
+    $tids[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
+  }
+  $node->field_engagement_types = $tids;
+  $tids = [];
+  foreach ($values->initiatives_and_programs as $delta => $aps_tid) {
+    $tids[] = govcms_jobs_get_mapped_id('taxonomy', $aps_tid);
+  }
+  $node->field_initiatives_and_programs = $tids;
+
+  // Duties
+  $node->field_duties->value = $values->duties;
+  $node->field_eligibility->value = $values->eligibility;
+  $node->field_notes->value = $values->notes;
+
+  // Notice details
+  $node->field_under_7_days_check->value = $values->under_7_days_check;
+  $node->field_closing_date->value = date('Y-m-d\TH:i:s', strtotime($values->closing_date->date));
+  $node->field_apply_url->value = $values->apply_url;
+  $node->field_contact_name->value = $values->contact_name;
+  if (!empty($values->contact_phone)) {
+    $node->field_contact_phone->value = $values->contact_phone;
+  }
+  $node->field_contact_email->value = $values->contact_email;
+  if (!empty($values->editorial_instruction)) {
+    $node->field_editorial_instruction->value = $values->editorial_instruction;
+  }
+
+  // Submit
+  if (!empty($values->approvers)) {
+    $node->field_approver->value = $values->approvers;
+  }
+  $node->field_moderation->value = $values->moderation;
+
+  $node->save();
 }

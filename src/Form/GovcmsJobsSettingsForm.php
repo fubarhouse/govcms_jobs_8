@@ -91,7 +91,7 @@ class GovcmsJobsSettingsForm extends ConfigFormBase {
     $tempStore->delete('api_cookie');
     $client = new GovcmsJobsApiClient($base_uri, $username, $password, $authorization);
     if (!$login = $client->login()) {
-      $this->messenger()->addError($this->t('Can not login to the API. The base uri or username or password or basic auth was incorrect.'));
+      $form_state->setErrorByName('', $this->t('Can not login to the API. The base uri or username or password or basic auth was incorrect.'));
     }
   }
 

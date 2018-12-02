@@ -4,6 +4,9 @@ dependencies:
   module:
     - node
     - options
+  enforced:
+    module:
+      - govcms_jobs
 id: node.field_agencies
 field_name: field_agencies
 entity_type: node
